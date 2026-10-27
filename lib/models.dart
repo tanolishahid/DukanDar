@@ -223,8 +223,8 @@ class PaymentRow {
       );
 }
 
-class Summary {
-  Summary({
+class PeriodSummary {
+  PeriodSummary({
     this.purchases = 0,
     this.sales = 0,
     this.cogs = 0,
@@ -253,7 +253,7 @@ class MonthRow {
   MonthRow(this.month, this.summary);
 
   final DateTime month;
-  final Summary summary;
+  final PeriodSummary summary;
 }
 
 class BestSeller {

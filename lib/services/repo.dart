@@ -427,7 +427,7 @@ ORDER BY c.expected_date ASC, c.taken_at ASC
 
   // ------------------------------------------------------------ dashboard
 
-  Future<Summary> summary(DateTime from, DateTime to) async {
+  Future<PeriodSummary> summary(DateTime from, DateTime to) async {
     final a = _iso(from), b = _iso(to);
     final pur = await _db.rawQuery(
         'SELECT COALESCE(SUM(qty * unit_cost), 0) AS v FROM batches WHERE deleted = 0 AND purchased_at >= ? AND purchased_at < ?',
@@ -447,7 +447,7 @@ FROM (
 )
 ''', [a, b]);
     final r = sal.first;
-    return Summary(
+    return PeriodSummary(
       purchases: numOf(pur.first['v']),
       sales: numOf(r['revenue']),
       cogs: numOf(r['cogs']),

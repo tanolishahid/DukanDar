@@ -27,7 +27,7 @@ class ReportData {
 
   /// Exclusive end.
   final DateTime to;
-  final Summary summary;
+  final PeriodSummary summary;
   final List<SaleRow> sales;
   final List<Map<String, Object?>> purchases;
   final List<CreditRow> credits;

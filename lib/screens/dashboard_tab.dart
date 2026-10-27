@@ -12,7 +12,7 @@ import '../ui.dart';
 class _DashData {
   _DashData(this.month, this.best, this.credit, this.stock, this.year);
 
-  final Summary month;
+  final PeriodSummary month;
   final List<BestSeller> best;
   final double credit;
   final double stock;
