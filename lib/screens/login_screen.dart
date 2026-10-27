@@ -26,6 +26,19 @@ class _LoginScreenState extends State<LoginScreen> {
   final _ownerName = TextEditingController();
   final _shopCode = TextEditingController();
   final _username = TextEditingController();
+  String? _savedCode;
+
+  @override
+  void initState() {
+    super.initState();
+    final session = context.read<SessionState>();
+    _savedCode = session.savedShopCode;
+    if (_savedCode != null) {
+      _shopCode.text = _savedCode!;
+      _username.text = session.savedUsername ?? '';
+      _mode = _Mode.staff;
+    }
+  }
 
   @override
   void dispose() {
@@ -52,6 +65,7 @@ class _LoginScreenState extends State<LoginScreen> {
         case _Mode.staff:
           await session.signInStaff(
               _shopCode.text.trim(), _username.text.trim(), _password.text);
+          _savedCode = session.savedShopCode;
           break;
         case _Mode.register:
           if (_shopName.text.trim().isEmpty || _ownerName.text.trim().isEmpty) {
@@ -144,7 +158,31 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 12),
                 ],
-                if (_mode == _Mode.staff) ...[
+                if (_mode == _Mode.staff && _savedCode != null) ...[
+                  Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.storefront),
+                      title: Text('Shop code ${_savedCode!}'),
+                      subtitle: const Text('Saved on this phone'),
+                      trailing: TextButton(
+                        onPressed: () async {
+                          await context.read<SessionState>().forgetSavedShop();
+                          setState(() {
+                            _savedCode = null;
+                            _shopCode.clear();
+                            _username.clear();
+                          });
+                        },
+                        child: const Text('Change'),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _username,
+                    decoration: const InputDecoration(labelText: 'Username'),
+                  ),
+                ] else if (_mode == _Mode.staff) ...[
                   TextField(
                     controller: _shopCode,
                     textCapitalization: TextCapitalization.characters,

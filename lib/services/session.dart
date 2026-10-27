@@ -174,6 +174,17 @@ class SessionState extends ChangeNotifier {
       password: password,
     );
     await _loadMembership();
+    // Remember the shop on this phone so staff only type username + password next time.
+    await _prefs.setString('saved_shop_code', shopCode.trim().toUpperCase());
+    await _prefs.setString('saved_username', username.trim());
+  }
+
+  String? get savedShopCode => _prefs.getString('saved_shop_code');
+  String? get savedUsername => _prefs.getString('saved_username');
+
+  Future<void> forgetSavedShop() async {
+    await _prefs.remove('saved_shop_code');
+    await _prefs.remove('saved_username');
   }
 
   Future<void> _loadMembership() async {
