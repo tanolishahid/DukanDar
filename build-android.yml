@@ -1,0 +1,46 @@
+name: Build Android app
+
+# Runs every time you upload (push) changes to the main branch,
+# or when you press "Run workflow" on the Actions page.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.6
+          cache: true
+
+      - run: flutter pub get
+
+      - run: flutter build apk --release
+
+      - name: Keep the file as a download from the Actions page
+        uses: actions/upload-artifact@v4
+        with:
+          name: DukanDar-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Publish a download link (Releases page)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: DukanDar - latest version
+          body: Download DukanDar.apk below and install it on your Android phone.
+          files: build/app/outputs/flutter-apk/app-release.apk
