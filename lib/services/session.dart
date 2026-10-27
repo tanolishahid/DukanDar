@@ -313,7 +313,10 @@ class SessionState extends ChangeNotifier {
     final temp = SupabaseClient(
       AppConfig.supabaseUrl,
       AppConfig.supabaseAnonKey,
-      authOptions: const AuthClientOptions(autoRefreshToken: false),
+      authOptions: const AuthClientOptions(
+        autoRefreshToken: false,
+        authFlowType: AuthFlowType.implicit,
+      ),
     );
     try {
       final res = await temp.auth.signUp(
