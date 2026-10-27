@@ -5,6 +5,7 @@ import '../models.dart';
 import '../perms.dart';
 import '../services/repo.dart';
 import '../services/session.dart';
+import '../theme.dart';
 import '../ui.dart';
 
 enum _Filter { unpaid, today, overdue, paid }
@@ -67,37 +68,27 @@ class _CreditTabState extends State<CreditTab> {
             }
           }).toList();
 
-          return Column(
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
             children: [
-              Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    Expanded(
-                        child: KpiTile(
-                            label: 'Customers owe you',
-                            value: rs(pending),
-                            icon: Icons.account_balance_wallet_outlined)),
-                    const SizedBox(width: 8),
-                    Expanded(
-                        child: KpiTile(
-                            label: 'Due today',
-                            value: '$dueToday',
-                            color: dueToday > 0 ? Colors.orange.shade800 : null,
-                            icon: Icons.notifications_active_outlined)),
-                    const SizedBox(width: 8),
-                    Expanded(
-                        child: KpiTile(
-                            label: 'Overdue',
-                            value: '$overdue',
-                            color: overdue > 0 ? lossColor(context) : null,
-                            icon: Icons.warning_amber_outlined)),
-                  ],
-                ),
+              HeroCard(
+                label: 'Customers owe you',
+                value: rs(pending),
+                caption: '${all.where((c) => !c.isSettled).length} unpaid entries',
+                chips: [
+                  HeroChip(
+                      label: 'Due today',
+                      value: '$dueToday',
+                      dot: dueToday > 0 ? AppColors.amber : AppColors.green),
+                  HeroChip(
+                      label: 'Overdue',
+                      value: '$overdue',
+                      dot: overdue > 0 ? AppColors.coral : AppColors.green),
+                ],
               ),
+              const SizedBox(height: 14),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Row(
                   children: [
                     for (final f in _Filter.values)
@@ -112,15 +103,17 @@ class _CreditTabState extends State<CreditTab> {
                   ],
                 ),
               ),
-              Expanded(
-                child: list.isEmpty
-                    ? const Center(child: Text('Nothing here.'))
-                    : ListView.builder(
-                        padding: const EdgeInsets.only(bottom: 90, top: 8),
-                        itemCount: list.length,
-                        itemBuilder: (ctx, i) => _CreditCard(credit: list[i]),
-                      ),
-              ),
+              const SizedBox(height: 12),
+              if (list.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 40),
+                  child: Center(child: Text('Nothing here.')),
+                ),
+              for (final c in list)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _CreditCard(credit: c),
+                ),
             ],
           );
         },
@@ -137,44 +130,92 @@ class _CreditCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = credit;
-    Color? chipColor;
+    final scheme = Theme.of(context).colorScheme;
+    Color chipColor;
     String chipText;
     if (c.isSettled) {
       chipText = 'Paid';
-      chipColor = Colors.green.shade700;
+      chipColor = profitColor(context);
     } else if (c.isOverdue) {
-      chipText = 'Overdue · ${c.expectedDate}';
-      chipColor = Colors.red.shade700;
+      chipText = 'Overdue';
+      chipColor = lossColor(context);
     } else if (c.isDueToday) {
       chipText = 'Due today';
-      chipColor = Colors.orange.shade800;
+      chipColor = warnColor(context);
     } else {
       chipText = 'Due ${c.expectedDate}';
+      chipColor = scheme.primary;
     }
+    final initial =
+        c.customerName.trim().isEmpty ? '?' : c.customerName.trim()[0].toUpperCase();
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: ListTile(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
         onTap: () => Navigator.push(
           context,
-          MaterialPageRoute<void>(builder: (_) => CreditDetailScreen(creditId: c.id)),
+          MaterialPageRoute<void>(
+              builder: (_) => CreditDetailScreen(creditId: c.id)),
         ),
-        title: Text(c.customerName,
-            style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Text([
-          c.productName,
-          if (c.phone.isNotEmpty) c.phone,
-          chipText,
-        ].join('  ·  '),
-            style: TextStyle(color: chipColor)),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(rs(c.balance),
-                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-            Text('of ${rs(c.totalDue)}',
-                style: Theme.of(context).textTheme.labelSmall),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: scheme.primary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                alignment: Alignment.center,
+                child: Text(initial,
+                    style: TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w800,
+                        color: scheme.primary)),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(c.customerName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 15.5, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 3),
+                    Text(
+                      [
+                        c.productName,
+                        if (c.phone.isNotEmpty) c.phone,
+                      ].join('  ·  '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: 12.5,
+                          color: scheme.onSurface.withValues(alpha: 0.65)),
+                    ),
+                    const SizedBox(height: 6),
+                    Pill(chipText, color: chipColor),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(rs(c.balance < 0 ? 0 : c.balance),
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w800)),
+                  Text('of ${rs(c.totalDue)}',
+                      style: TextStyle(
+                          fontSize: 11.5,
+                          color: scheme.onSurface.withValues(alpha: 0.55))),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

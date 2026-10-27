@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 
 import '../db/app_db.dart';
 import '../models.dart';
+import 'importer.dart';
 import 'reminders.dart';
 import 'session.dart';
 
@@ -165,6 +166,83 @@ ORDER BY p.name COLLATE NOCASE
     });
     _changed();
     return null;
+  }
+
+  /// Adds many products at once (from an imported file). Rows that match an
+  /// existing product become another batch of it. One save, one sync.
+  Future<ImportResult> importRows(List<ImportRow> rows) async {
+    final skipped = <String>[];
+    var batches = 0;
+    var newProducts = 0;
+    var units = 0;
+    var value = 0.0;
+
+    await _db.transaction((txn) async {
+      String keyOf(String cat, String name, String brand, String model) =>
+          '$cat|${name.trim().toLowerCase()}|${brand.trim().toLowerCase()}|${model.trim().toLowerCase()}';
+
+      final byKey = <String, String>{};
+      final existing = await txn.query('products', where: 'deleted = 0');
+      for (final p in existing) {
+        byKey[keyOf(strOf(p['category']), strOf(p['name']), strOf(p['brand']),
+            strOf(p['model']))] = strOf(p['id']);
+      }
+      final serials = <String>{};
+      final serialRows = await txn.query('batches',
+          columns: ['serial'],
+          where: "deleted = 0 AND serial IS NOT NULL AND serial != ''");
+      for (final r in serialRows) {
+        serials.add(strOf(r['serial']).toLowerCase());
+      }
+
+      for (final r in rows) {
+        final serial = r.serial.trim();
+        if (serial.isNotEmpty) {
+          if (serials.contains(serial.toLowerCase())) {
+            skipped.add('Row ${r.line} (${r.name}): serial number $serial is already in stock');
+            continue;
+          }
+          serials.add(serial.toLowerCase());
+        }
+        final key = keyOf(r.category, r.name, r.brand, r.model);
+        var productId = byKey[key];
+        if (productId == null) {
+          final pr = _base();
+          productId = pr['id'] as String;
+          await txn.insert('products', {
+            ...pr,
+            'name': r.name.trim(),
+            'category': r.category,
+            'subcategory': r.subcategory,
+            'brand': r.brand.trim(),
+            'model': r.model.trim(),
+            'created_at': _now(),
+          });
+          byKey[key] = productId;
+          newProducts++;
+        }
+        await txn.insert('batches', {
+          ..._base(),
+          'product_id': productId,
+          'qty': r.qty,
+          'unit_cost': r.unitCost,
+          'serial': serial,
+          'purchased_at': _now(),
+          'created_by': session.userId,
+        });
+        batches++;
+        units += r.qty;
+        value += r.total;
+      }
+    });
+    if (batches > 0) _changed();
+    return ImportResult(
+      batches: batches,
+      newProducts: newProducts,
+      units: units,
+      value: value,
+      skipped: skipped,
+    );
   }
 
   /// Removes a purchase. Refused if some of its stock was already sold.

@@ -12,6 +12,7 @@ import 'services/reminders.dart';
 import 'services/repo.dart';
 import 'services/session.dart';
 import 'services/sync.dart';
+import 'theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,6 +35,7 @@ Future<void> main() async {
   await session.load();
   final repo = Repo(session);
   final sync = SyncService(session, repo, prefs);
+  final themeState = ThemeState(prefs);
 
   await Reminders.instance.init();
   sync.start();
@@ -45,6 +47,7 @@ Future<void> main() async {
         ChangeNotifierProvider<SessionState>.value(value: session),
         ChangeNotifierProvider<Repo>.value(value: repo),
         ChangeNotifierProvider<SyncService>.value(value: sync),
+        ChangeNotifierProvider<ThemeState>.value(value: themeState),
       ],
       child: const DukanDarApp(),
     ),
@@ -56,16 +59,13 @@ class DukanDarApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeState = context.watch<ThemeState>();
     return MaterialApp(
       title: AppConfig.appName,
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0B6E6E)),
-        inputDecorationTheme: const InputDecorationTheme(
-          border: OutlineInputBorder(),
-        ),
-      ),
+      theme: buildTheme(Brightness.light),
+      darkTheme: buildTheme(Brightness.dark),
+      themeMode: themeState.mode,
       home: const _Root(),
     );
   }

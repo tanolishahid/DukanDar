@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../config.dart';
 import '../services/session.dart';
+import '../theme.dart';
 import '../ui.dart';
 
 enum _Mode { owner, staff, register }
@@ -85,7 +86,30 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Icon(Icons.storefront, size: 56, color: theme.colorScheme.primary),
+                Center(
+                  child: Container(
+                    width: 84,
+                    height: 84,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [AppColors.purpleLight, AppColors.purpleDark],
+                      ),
+                      borderRadius: BorderRadius.circular(26),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.purple.withValues(alpha: 0.35),
+                          blurRadius: 22,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(Icons.storefront,
+                        size: 44, color: Colors.white),
+                  ),
+                ),
+                const SizedBox(height: 14),
                 const SizedBox(height: 8),
                 Text(AppConfig.appName,
                     textAlign: TextAlign.center,

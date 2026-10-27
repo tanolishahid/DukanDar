@@ -7,6 +7,7 @@ import '../services/files.dart';
 import '../services/reports.dart';
 import '../services/repo.dart';
 import '../services/session.dart';
+import '../theme.dart';
 import '../ui.dart';
 
 class _DashData {
@@ -67,27 +68,93 @@ class _DashboardTabState extends State<DashboardTab> {
         builder: (ctx, d) {
           final m = d.month;
           final net = m.net;
+          final scheme = Theme.of(context).colorScheme;
+          final totalPL = m.profit + m.loss;
+          final profitShare = totalPL <= 0 ? 0 : (m.profit / totalPL * 100);
+          final wide = MediaQuery.of(context).size.width >= 700;
           return ListView(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 90),
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton(
-                      onPressed: () => _shift(-1),
-                      icon: const Icon(Icons.chevron_left)),
-                  Text(fmtMonth(_month),
-                      style: Theme.of(context).textTheme.titleLarge),
-                  IconButton(
-                      onPressed: () => _shift(1),
-                      icon: const Icon(Icons.chevron_right)),
+              HeroCard(
+                label: net >= 0 ? 'Net profit' : 'Net loss',
+                value: rs(net.abs()),
+                caption: fmtMonth(_month),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _MonthButton(
+                        icon: Icons.chevron_left, onTap: () => _shift(-1)),
+                    const SizedBox(width: 6),
+                    _MonthButton(
+                        icon: Icons.chevron_right, onTap: () => _shift(1)),
+                  ],
+                ),
+                chips: [
+                  HeroChip(label: 'Sales', value: rs(m.sales)),
+                  HeroChip(label: 'Purchases', value: rs(m.purchases)),
+                  HeroChip(label: 'Sales made', value: '${m.salesCount}'),
                 ],
               ),
+              const SectionTitle('Profit / Loss'),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Row(
+                    children: [
+                      DonutChart(
+                        size: 140,
+                        parts: [
+                          DonutPart(m.profit, AppColors.green),
+                          DonutPart(m.loss, AppColors.coral),
+                        ],
+                        centerTop: totalPL <= 0 ? '-' : '${profitShare.round()}%',
+                        centerBottom: 'profit',
+                      ),
+                      const SizedBox(width: 20),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _LegendRow(
+                                color: AppColors.green,
+                                label: 'Profit',
+                                value: rs(m.profit)),
+                            const SizedBox(height: 12),
+                            _LegendRow(
+                                color: AppColors.coral,
+                                label: 'Loss',
+                                value: rs(m.loss)),
+                            const SizedBox(height: 12),
+                            _LegendRow(
+                                color: scheme.primary,
+                                label: 'Extra costs',
+                                value: rs(m.extra)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SectionTitle('Sales - last 12 months'),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 18, 14, 14),
+                  child: MiniBarChart(
+                    values: [for (final r in d.year) r.summary.sales],
+                    labels: [
+                      for (final r in d.year)
+                        fmtMonthShort(r.month).split(' ').first,
+                    ],
+                  ),
+                ),
+              ),
+              const SectionTitle('This month'),
               GridView.count(
-                crossAxisCount: MediaQuery.of(context).size.width >= 700 ? 4 : 2,
-                childAspectRatio: 2.2,
-                mainAxisSpacing: 8,
-                crossAxisSpacing: 8,
+                crossAxisCount: wide ? 4 : 2,
+                childAspectRatio: wide ? 2.4 : 1.9,
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
@@ -96,7 +163,7 @@ class _DashboardTabState extends State<DashboardTab> {
                       value: rs(m.purchases),
                       icon: Icons.shopping_cart_outlined),
                   KpiTile(
-                      label: 'Sales (${m.salesCount})',
+                      label: 'Sales',
                       value: rs(m.sales),
                       icon: Icons.point_of_sale),
                   KpiTile(
@@ -110,48 +177,127 @@ class _DashboardTabState extends State<DashboardTab> {
                       color: lossColor(context),
                       icon: Icons.trending_down),
                   KpiTile(
-                      label: net >= 0 ? 'Net profit' : 'Net loss',
-                      value: rs(net.abs()),
-                      color: net >= 0 ? profitColor(context) : lossColor(context),
-                      icon: Icons.balance),
-                  KpiTile(
                       label: 'Extra costs',
                       value: rs(m.extra),
                       icon: Icons.local_shipping_outlined),
                   KpiTile(
-                      label: 'Credit pending (now)',
+                      label: 'Credit pending',
                       value: rs(d.credit),
+                      color: warnColor(context),
                       icon: Icons.account_balance_wallet_outlined),
                   KpiTile(
-                      label: 'Stock value (now)',
+                      label: 'Stock value',
                       value: rs(d.stock),
                       icon: Icons.inventory_2_outlined),
+                  KpiTile(
+                      label: 'Sales made',
+                      value: '${m.salesCount}',
+                      icon: Icons.receipt_long_outlined),
                 ],
               ),
-              const SizedBox(height: 20),
-              Text('Best-selling products',
-                  style: Theme.of(context).textTheme.titleMedium),
+              const SectionTitle('Best-selling products'),
               if (d.best.isEmpty)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 8),
                   child: Text('No sales this month.'),
                 ),
               for (var i = 0; i < d.best.length; i++)
-                ListTile(
-                  dense: true,
-                  leading: CircleAvatar(radius: 14, child: Text('${i + 1}')),
-                  title: Text(d.best[i].name),
-                  trailing: Text('${d.best[i].qty} sold  ·  ${rs(d.best[i].revenue)}'),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Card(
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        radius: 18,
+                        backgroundColor: scheme.primary.withValues(alpha: 0.15),
+                        child: Text('${i + 1}',
+                            style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                color: scheme.primary)),
+                      ),
+                      title: Text(d.best[i].name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w600)),
+                      trailing: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text('${d.best[i].qty} sold',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w700)),
+                          Text(rs(d.best[i].revenue),
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: scheme.onSurface
+                                      .withValues(alpha: 0.6))),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-              const SizedBox(height: 20),
-              Text('Last 12 months',
-                  style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              _YearTable(rows: d.year),
+              const SectionTitle('Last 12 months'),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: _YearTable(rows: d.year),
+                ),
+              ),
             ],
           );
         },
       ),
+    );
+  }
+}
+
+class _MonthButton extends StatelessWidget {
+  const _MonthButton({required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.18),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, color: Colors.white, size: 22),
+      ),
+    );
+  }
+}
+
+class _LegendRow extends StatelessWidget {
+  const _LegendRow({
+    required this.color,
+    required this.label,
+    required this.value,
+  });
+
+  final Color color;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 8),
+        Expanded(child: Text(label)),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.w700)),
+      ],
     );
   }
 }

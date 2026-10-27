@@ -5,8 +5,10 @@ import '../models.dart';
 import '../perms.dart';
 import '../services/repo.dart';
 import '../services/session.dart';
+import '../theme.dart';
 import '../ui.dart';
 import 'add_stock_screen.dart';
+import 'import_screen.dart';
 
 class InventoryTab extends StatefulWidget {
   const InventoryTab({super.key});
@@ -33,6 +35,13 @@ class _InventoryTabState extends State<InventoryTab> {
     );
   }
 
+  void _import() {
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(builder: (_) => const ImportScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = context.watch<SessionState>();
@@ -48,39 +57,6 @@ class _InventoryTabState extends State<InventoryTab> {
           : null,
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-            child: TextField(
-              controller: _search,
-              decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.search),
-                hintText: 'Search name, brand, model or serial',
-                suffixIcon: _search.text.isEmpty
-                    ? null
-                    : IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () => setState(_search.clear),
-                      ),
-              ),
-              onChanged: (_) => setState(() {}),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              children: [
-                for (final c in const ['', catLaptop, catAccessory])
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(c.isEmpty ? 'All' : c),
-                      selected: _cat == c,
-                      onSelected: (_) => setState(() => _cat = c),
-                    ),
-                  ),
-              ],
-            ),
-          ),
           Expanded(
             child: RepoFuture<List<ProductStock>>(
               deps: [_search.text, _cat],
@@ -88,46 +64,102 @@ class _InventoryTabState extends State<InventoryTab> {
               builder: (ctx, list) {
                 var units = 0;
                 var value = 0.0;
+                var out = 0;
                 for (final p in list) {
                   units += p.stock;
                   value += p.stockValue;
+                  if (p.stock <= 0) out++;
                 }
-                return Column(
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                    HeroCard(
+                      label: showCost ? 'Stock value' : 'Items in stock',
+                      value: showCost ? rs(value) : '$units',
+                      caption: showCost
+                          ? 'What your stock cost you'
+                          : 'Units on the shelf',
+                      chips: [
+                        HeroChip(label: 'Products', value: '${list.length}'),
+                        if (showCost)
+                          HeroChip(label: 'Units', value: '$units'),
+                        HeroChip(
+                            label: 'Out of stock',
+                            value: '$out',
+                            dot: out > 0 ? AppColors.coral : AppColors.green),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _search,
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.search),
+                        hintText: 'Search name, brand, model or serial',
+                        suffixIcon: _search.text.isEmpty
+                            ? null
+                            : IconButton(
+                                icon: const Icon(Icons.clear),
+                                onPressed: () => setState(_search.clear),
+                              ),
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    const SizedBox(height: 12),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
                       child: Row(
                         children: [
-                          Text('${list.length} products  ·  $units units in stock'),
-                          const Spacer(),
-                          if (showCost)
-                            Text('Stock value ${rs(value)}',
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w600)),
+                          for (final c in const ['', catLaptop, catAccessory])
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ChoiceChip(
+                                label: Text(c.isEmpty ? 'All' : c),
+                                selected: _cat == c,
+                                onSelected: (_) => setState(() => _cat = c),
+                              ),
+                            ),
+                          if (session.can(Perm.addInventory))
+                            ActionChip(
+                              avatar: const Icon(Icons.upload_file, size: 18),
+                              label: const Text('Import from file'),
+                              onPressed: _import,
+                            ),
                         ],
                       ),
                     ),
-                    Expanded(
-                      child: list.isEmpty
-                          ? const Center(
-                              child: Text(
-                                  'No products yet.\nTap "Add stock" to add your first one.',
-                                  textAlign: TextAlign.center))
-                          : ListView.builder(
-                              padding: const EdgeInsets.only(bottom: 90),
-                              itemCount: list.length,
-                              itemBuilder: (ctx, i) => _ProductCard(
-                                product: list[i],
-                                showCost: showCost,
-                                onTap: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute<void>(
-                                      builder: (_) =>
-                                          ProductDetailScreen(product: list[i])),
-                                ),
+                    const SizedBox(height: 12),
+                    if (list.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 36),
+                        child: Column(
+                          children: [
+                            const Text(
+                                'No products yet.\nTap "Add stock", or import your list from a file.',
+                                textAlign: TextAlign.center),
+                            if (session.can(Perm.addInventory)) ...[
+                              const SizedBox(height: 14),
+                              OutlinedButton.icon(
+                                onPressed: _import,
+                                icon: const Icon(Icons.upload_file),
+                                label: const Text('Import from Excel / CSV'),
                               ),
-                            ),
-                    ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    for (final p in list)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _ProductCard(
+                          product: p,
+                          showCost: showCost,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute<void>(
+                                builder: (_) => ProductDetailScreen(product: p)),
+                          ),
+                        ),
+                      ),
                   ],
                 );
               },
@@ -153,29 +185,53 @@ class _ProductCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = product;
-    final low = p.stock <= 0;
+    final out = p.stock <= 0;
+    final low = !out && p.stock <= 2;
+    final color = out
+        ? lossColor(context)
+        : (low ? warnColor(context) : profitColor(context));
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: ListTile(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
         onTap: onTap,
-        title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Text([
-          p.typeLabel,
-          if (p.brandModel.isNotEmpty) p.brandModel,
-          if (showCost) 'Last cost ${rs(p.lastCost)}',
-        ].join('  ·  ')),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text('${p.stock}',
-                style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: low ? Colors.red.shade700 : null)),
-            Text(low ? 'out of stock' : 'in stock',
-                style: Theme.of(context).textTheme.labelSmall),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              CategoryAvatar(category: p.category, subcategory: p.subcategory),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(p.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 15.5, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 3),
+                    Text(
+                      [
+                        p.typeLabel,
+                        if (p.brandModel.isNotEmpty) p.brandModel,
+                        if (showCost) 'Cost ${rs(p.lastCost)}',
+                      ].join('  ·  '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: 12.5,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.65)),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Pill(out ? 'Out' : '${p.stock} left', color: color),
+            ],
+          ),
         ),
       ),
     );

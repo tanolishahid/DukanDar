@@ -5,6 +5,7 @@ import '../models.dart';
 import '../perms.dart';
 import '../services/repo.dart';
 import '../services/session.dart';
+import '../theme.dart';
 import '../ui.dart';
 
 enum _Range { today, week, month, all }
@@ -63,87 +64,71 @@ class _SalesTabState extends State<SalesTab> {
         icon: const Icon(Icons.add),
         label: const Text('New sale'),
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (final r in _Range.values)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        label: Text(_label(r)),
-                        selected: _range == r,
-                        onSelected: (_) => setState(() => _range = r),
-                      ),
-                    ),
-                ],
+      body: RepoFuture<List<SaleRow>>(
+        deps: [_range],
+        load: (repo) => repo.sales(from, to),
+        builder: (ctx, list) {
+          var revenue = 0.0, profit = 0.0, loss = 0.0;
+          for (final s in list) {
+            revenue += s.revenue;
+            if (s.profit >= 0) {
+              profit += s.profit;
+            } else {
+              loss += -s.profit;
+            }
+          }
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
+            children: [
+              HeroCard(
+                label: 'Sales - ${_label(_range)}',
+                value: rs(revenue),
+                caption: '${list.length} sales',
+                chips: showProfit
+                    ? [
+                        HeroChip(
+                            label: 'Profit',
+                            value: rs(profit),
+                            dot: AppColors.green),
+                        HeroChip(
+                            label: 'Loss', value: rs(loss), dot: AppColors.coral),
+                      ]
+                    : const <Widget>[],
               ),
-            ),
-          ),
-          Expanded(
-            child: RepoFuture<List<SaleRow>>(
-              deps: [_range],
-              load: (repo) => repo.sales(from, to),
-              builder: (ctx, list) {
-                var revenue = 0.0, profit = 0.0, loss = 0.0;
-                for (final s in list) {
-                  revenue += s.revenue;
-                  if (s.profit >= 0) {
-                    profit += s.profit;
-                  } else {
-                    loss += -s.profit;
-                  }
-                }
-                return Column(
+              const SizedBox(height: 14),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Row(
-                        children: [
-                          Expanded(
-                              child: KpiTile(
-                                  label: 'Sales (${list.length})',
-                                  value: rs(revenue),
-                                  icon: Icons.point_of_sale)),
-                          if (showProfit) ...[
-                            const SizedBox(width: 8),
-                            Expanded(
-                                child: KpiTile(
-                                    label: 'Total profit',
-                                    value: rs(profit),
-                                    color: profitColor(context))),
-                            const SizedBox(width: 8),
-                            Expanded(
-                                child: KpiTile(
-                                    label: 'Total loss',
-                                    value: rs(loss),
-                                    color: lossColor(context))),
-                          ],
-                        ],
+                    for (final r in _Range.values)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          label: Text(_label(r)),
+                          selected: _range == r,
+                          onSelected: (_) => setState(() => _range = r),
+                        ),
                       ),
-                    ),
-                    Expanded(
-                      child: list.isEmpty
-                          ? const Center(child: Text('No sales in this period.'))
-                          : ListView.builder(
-                              padding: const EdgeInsets.only(bottom: 90),
-                              itemCount: list.length,
-                              itemBuilder: (ctx, i) => _SaleCard(
-                                  sale: list[i],
-                                  showProfit: showProfit,
-                                  canDelete: session.can(Perm.edit)),
-                            ),
-                    ),
                   ],
-                );
-              },
-            ),
-          ),
-        ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (list.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 40),
+                  child: Center(child: Text('No sales in this period.')),
+                ),
+              for (final s in list)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _SaleCard(
+                      sale: s,
+                      showProfit: showProfit,
+                      canDelete: session.can(Perm.edit)),
+                ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -163,21 +148,15 @@ class _SaleCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = sale;
+    final scheme = Theme.of(context).colorScheme;
     final title = s.brandModel.isEmpty
         ? s.productName
         : '${s.productName} · ${s.brandModel}';
+    final good = s.profit >= 0;
+    final color = good ? profitColor(context) : lossColor(context);
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: ListTile(
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Text([
-          '${s.qty} × ${rs(s.unitPrice)}',
-          if (s.extraCost > 0) 'extra ${rs(s.extraCost)}',
-          if (s.customer.isNotEmpty) s.customer,
-          if (s.isCredit) 'on credit',
-          fmtDateTime(s.soldAt),
-        ].join('  ·  ')),
-        trailing: showProfit ? profitText(context, s.profit) : Text(rs(s.revenue)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
         onLongPress: canDelete && !s.isCredit
             ? () async {
                 final ok = await confirmDialog(context, 'Delete this sale?',
@@ -187,6 +166,74 @@ class _SaleCard extends StatelessWidget {
                 if (err != null && context.mounted) toast(context, err);
               }
             : null,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Icon(
+                    showProfit
+                        ? (good ? Icons.trending_up : Icons.trending_down)
+                        : Icons.receipt_long_outlined,
+                    color: showProfit ? color : scheme.primary),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 15.5, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 3),
+                    Text(
+                      [
+                        '${s.qty} × ${rs(s.unitPrice)}',
+                        if (s.extraCost > 0) 'extra ${rs(s.extraCost)}',
+                        if (s.customer.isNotEmpty) s.customer,
+                        if (s.isCredit) 'on credit',
+                      ].join('  ·  '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: 12.5,
+                          color: scheme.onSurface.withValues(alpha: 0.65)),
+                    ),
+                    Text(fmtDateTime(s.soldAt),
+                        style: TextStyle(
+                            fontSize: 11.5,
+                            color: scheme.onSurface.withValues(alpha: 0.5))),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(rs(s.revenue),
+                      style: const TextStyle(
+                          fontSize: 15, fontWeight: FontWeight.w800)),
+                  if (showProfit)
+                    Text(
+                      good ? '+${rs(s.profit)}' : '-${rs(-s.profit)}',
+                      style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: color),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
