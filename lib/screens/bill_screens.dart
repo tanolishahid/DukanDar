@@ -211,7 +211,7 @@ class _NewBillScreenState extends State<NewBillScreen> {
     super.dispose();
   }
 
-  double get _subtotal => _lines.fold(0.0, (a, l) => a + l.qty * l.price);
+  double get _subtotal => _lines.fold<double>(0.0, (a, l) => a + l.qty * l.price);
   double get _discountValue => parseNum(_discount.text) ?? 0;
   double get _total => _subtotal - _discountValue;
 

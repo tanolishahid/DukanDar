@@ -400,7 +400,7 @@ ORDER BY s.sold_at DESC
         return 'Write a description for the repair / service line.';
       }
     }
-    final subtotal = lines.fold(0.0, (a, l) => a + l.qty * l.price);
+    final subtotal = lines.fold<double>(0.0, (a, l) => a + l.qty * l.price);
     if (discount < 0 || discount > subtotal + 0.004) {
       return 'The discount cannot be more than the bill total.';
     }
@@ -616,7 +616,7 @@ ORDER BY s.sold_at DESC
     final stamp = _now();
     await _db.transaction((txn) async {
       for (final b in bills) {
-        final subtotal = b.lines.fold(0.0, (a, l) => a + l.qty * l.price);
+        final subtotal = b.lines.fold<double>(0.0, (a, l) => a + l.qty * l.price);
         if (subtotal <= 0) {
           problems.add('${b.label}: total is zero');
           continue;
@@ -661,7 +661,7 @@ ORDER BY s.sold_at DESC
             'product_name': label,
             'customer_name': b.customer.isEmpty ? 'Walk-in customer' : b.customer,
             'phone': b.phone,
-            'qty': b.lines.fold(0, (a, l) => a + l.qty),
+            'qty': b.lines.fold<int>(0, (a, l) => a + l.qty),
             'total_due': total,
             'taken_at': at,
             'expected_date': isoDayOf(b.date.add(const Duration(days: 30))),

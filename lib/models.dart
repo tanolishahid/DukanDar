@@ -241,9 +241,9 @@ class BillRow {
 
   double get balance => total - paid;
   bool get hasBalance => balance > 0.004;
-  double get subtotal => lines.fold(0.0, (a, l) => a + l.shownTotal);
-  double get profit => lines.fold(0.0, (a, l) => a + l.profit);
-  int get itemCount => lines.fold(0, (a, l) => a + l.qty);
+  double get subtotal => lines.fold<double>(0.0, (a, l) => a + l.shownTotal);
+  double get profit => lines.fold<double>(0.0, (a, l) => a + l.profit);
+  int get itemCount => lines.fold<int>(0, (a, l) => a + l.qty);
   bool get isRepairOnly => lines.isNotEmpty && lines.every((l) => l.isService);
 
   /// "Laptop, Mouse, Repair" for lists.

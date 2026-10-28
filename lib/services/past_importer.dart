@@ -97,8 +97,8 @@ class PastConvertResult {
   final List<String> problems;
   final int lineCount;
 
-  double get total => bills.fold(0.0, (a, b) {
-        final sub = b.lines.fold(0.0, (x, l) => x + l.qty * l.price);
+  double get total => bills.fold<double>(0.0, (a, b) {
+        final sub = b.lines.fold<double>(0.0, (x, l) => x + l.qty * l.price);
         return a + sub - b.discount;
       });
 
