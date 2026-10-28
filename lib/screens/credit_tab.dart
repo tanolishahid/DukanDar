@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../responsive.dart';
 import 'package:provider/provider.dart';
 
 import '../models.dart';
@@ -305,7 +307,8 @@ class _NewCreditScreenState extends State<NewCreditScreen> {
       body: Form(
         key: _form,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: Responsive.pad(context, Responsive.formWidth(context),
+              const EdgeInsets.all(16)),
           children: [
             TextFormField(
               controller: _name,
@@ -518,7 +521,8 @@ class CreditDetailScreen extends StatelessWidget {
                   label: const Text('Add payment'),
                 ),
           body: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 90),
+            padding: Responsive.pad(context, Responsive.formWidth(context),
+                const EdgeInsets.fromLTRB(16, 16, 16, 90)),
             children: [
               if (c.phone.isNotEmpty)
                 ListTile(

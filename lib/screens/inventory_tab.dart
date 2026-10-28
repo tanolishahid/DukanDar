@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../responsive.dart';
 import 'package:provider/provider.dart';
 
 import '../models.dart';
@@ -287,7 +289,8 @@ class ProductDetailScreen extends StatelessWidget {
         load: (repo) => repo.batchesOf(p.id),
         builder: (ctx, batches) {
           return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 90),
+            padding: Responsive.pad(context, Responsive.formWidth(context),
+                const EdgeInsets.fromLTRB(16, 16, 16, 90)),
             children: [
               Text(p.typeLabel, style: Theme.of(context).textTheme.labelLarge),
               if (p.brandModel.isNotEmpty)

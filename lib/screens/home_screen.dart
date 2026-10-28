@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../responsive.dart';
 import 'package:provider/provider.dart';
 
 import '../config.dart';
@@ -142,7 +144,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final theme = context.watch<ThemeState>();
     final tabs = _tabs(session);
     if (_index >= tabs.length) _index = 0;
-    final wide = MediaQuery.of(context).size.width >= 800;
+    final width = MediaQuery.sizeOf(context).width;
+    final wide = width >= Responsive.railFrom;
+    final extended = width >= Responsive.extendedRailFrom;
     final scheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -295,7 +299,10 @@ class _HomeScreenState extends State<HomeScreen> {
             NavigationRail(
               selectedIndex: _index,
               onDestinationSelected: (i) => setState(() => _index = i),
-              labelType: NavigationRailLabelType.all,
+              extended: extended,
+              labelType: extended
+                  ? NavigationRailLabelType.none
+                  : NavigationRailLabelType.all,
               destinations: [
                 for (final t in tabs)
                   NavigationRailDestination(
@@ -309,7 +316,8 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Align(
                 alignment: Alignment.topCenter,
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1280),
+                  constraints: BoxConstraints(
+                      maxWidth: Responsive.pageWidth(context)),
                   child: body,
                 ),
               ),

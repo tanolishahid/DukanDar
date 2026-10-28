@@ -71,7 +71,7 @@ class _DashboardTabState extends State<DashboardTab> {
           final scheme = Theme.of(context).colorScheme;
           final totalPL = m.profit + m.loss;
           final profitShare = totalPL <= 0 ? 0 : (m.profit / totalPL * 100);
-          final wide = MediaQuery.of(context).size.width >= 700;
+          final wide = MediaQuery.sizeOf(context).width >= 700;
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
             children: [

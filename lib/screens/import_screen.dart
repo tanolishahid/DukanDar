@@ -1,5 +1,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+
+import '../responsive.dart';
 import 'package:provider/provider.dart';
 
 import '../services/files.dart';
@@ -111,7 +113,8 @@ class _ImportScreenState extends State<ImportScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Import from file')),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+        padding: Responsive.pad(context, Responsive.formWidth(context),
+            const EdgeInsets.fromLTRB(16, 8, 16, 32)),
         children: [
           Card(
             child: Padding(

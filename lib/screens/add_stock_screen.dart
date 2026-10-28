@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../responsive.dart';
 import 'package:provider/provider.dart';
 
 import '../models.dart';
@@ -93,7 +95,8 @@ class _AddStockScreenState extends State<AddStockScreen> {
       body: Form(
         key: _form,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: Responsive.pad(context, Responsive.formWidth(context),
+              const EdgeInsets.all(16)),
           children: [
             TextFormField(
               controller: _name,

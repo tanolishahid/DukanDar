@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../perms.dart';
+import '../responsive.dart';
 import '../services/session.dart';
 import '../ui.dart';
 
@@ -54,7 +55,9 @@ class _StaffScreenState extends State<StaffScreen> {
         icon: const Icon(Icons.person_add_alt_1),
         label: const Text('Add staff'),
       ),
-      body: Column(
+      body: MaxWidth(
+        maxWidth: Responsive.formWidth(context),
+        child: Column(
         children: [
           Card(
             margin: const EdgeInsets.all(12),
@@ -121,6 +124,7 @@ class _StaffScreenState extends State<StaffScreen> {
             ),
           ),
         ],
+        ),
       ),
     );
   }
