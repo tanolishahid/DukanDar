@@ -369,6 +369,12 @@ class Importer {
   }
 
   static String guessSubcategory(String name, String rawCategory) {
+    // If the Category column already holds one of our types (e.g. "LED",
+    // "Graphic card"), trust it before guessing from the product name.
+    final rawType = rawCategory.trim().toLowerCase();
+    for (final t in accessoryTypes) {
+      if (t != 'Other' && t.toLowerCase() == rawType) return t;
+    }
     final text = '${rawCategory.toLowerCase()} ${name.toLowerCase()}';
     // Short words (led, ups, ram...) must match as whole words, so "handled"
     // or "groups" are not mistaken for LED / UPS.
