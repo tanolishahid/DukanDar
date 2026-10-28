@@ -1,5 +1,4 @@
-import 'dart:io';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
@@ -20,7 +19,7 @@ class Reminders {
   bool _ready = false;
 
   Future<void> init() async {
-    if (!Platform.isAndroid) return;
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
     try {
       tzdata.initializeTimeZones();
       const settings = InitializationSettings(

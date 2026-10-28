@@ -109,7 +109,7 @@ class _InventoryTabState extends State<InventoryTab> {
                       scrollDirection: Axis.horizontal,
                       child: Row(
                         children: [
-                          for (final c in const ['', catLaptop, catAccessory])
+                          for (final c in const ['', catLaptop, catComputer, catAccessory])
                             Padding(
                               padding: const EdgeInsets.only(right: 8),
                               child: ChoiceChip(

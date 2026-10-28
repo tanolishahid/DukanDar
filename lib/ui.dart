@@ -322,6 +322,20 @@ class CategoryAvatar extends StatelessWidget {
 
   IconData get _icon {
     if (category == catLaptop) return Icons.laptop_mac;
+    if (category == catComputer) {
+      switch (subcategory) {
+        case 'All-in-One':
+          return Icons.desktop_mac_outlined;
+        case 'Mini PC':
+          return Icons.developer_board;
+        case 'Server':
+          return Icons.dns_outlined;
+        case 'Gaming PC':
+          return Icons.sports_esports_outlined;
+        default:
+          return Icons.computer;
+      }
+    }
     switch (subcategory) {
       case 'Keyboard':
         return Icons.keyboard_outlined;
@@ -337,6 +351,35 @@ class CategoryAvatar extends StatelessWidget {
         return Icons.battery_charging_full;
       case 'RAM / SSD':
         return Icons.memory;
+      case 'LCD':
+      case 'LED':
+        return Icons.tv_outlined;
+      case 'Graphic card':
+        return Icons.videogame_asset_outlined;
+      case 'Processor':
+        return Icons.developer_board;
+      case 'Motherboard':
+        return Icons.dashboard_outlined;
+      case 'Power supply':
+        return Icons.electrical_services;
+      case 'Casing':
+        return Icons.desktop_windows_outlined;
+      case 'Cooler / Fan':
+        return Icons.air;
+      case 'HDD':
+        return Icons.storage_outlined;
+      case 'Printer':
+        return Icons.print_outlined;
+      case 'Webcam':
+        return Icons.videocam_outlined;
+      case 'Speaker':
+        return Icons.speaker_outlined;
+      case 'UPS':
+        return Icons.battery_charging_full;
+      case 'Router / Network':
+        return Icons.router_outlined;
+      case 'Cable / Adapter':
+        return Icons.cable;
       default:
         return Icons.devices_other_outlined;
     }
@@ -344,10 +387,11 @@ class CategoryAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final key = category == catLaptop ? 'Laptop' : subcategory;
+    final key = category == catLaptop ? 'Laptop' : '$category$subcategory';
     final index = key.isEmpty ? 0 : key.codeUnits.fold<int>(0, (a, b) => a + b);
     var color = _palette[index % _palette.length];
     if (category == catLaptop) color = AppColors.purple;
+    if (category == catComputer) color = const Color(0xFF3B82F6);
     if (_isDark(context)) {
       color = Color.lerp(color, Colors.white, 0.25) ?? color;
     }

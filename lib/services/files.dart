@@ -1,20 +1,33 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../db/app_db.dart';
+import 'web_download_stub.dart'
+    if (dart.library.js_interop) 'web_download_web.dart';
 
 /// Saves files the user asked for (reports, backups).
 ///  - Android: opens the share sheet (save to Drive, WhatsApp, Files...).
 ///  - Windows: saves into the Downloads folder and opens it.
+///  - Web (browser): downloads the file through the browser.
 class FileOut {
+  static bool get _isPhone =>
+      defaultTargetPlatform == TargetPlatform.android ||
+      defaultTargetPlatform == TargetPlatform.iOS;
+
   static Future<String> save(String fileName, List<int> bytes) async {
+    if (kIsWeb) {
+      downloadBytes(fileName, bytes);
+      return '$fileName (see your browser downloads)';
+    }
+
     Directory dir;
-    if (Platform.isAndroid || Platform.isIOS) {
+    if (_isPhone) {
       dir = await getTemporaryDirectory();
     } else {
       dir = await getDownloadsDirectory() ??
@@ -24,9 +37,9 @@ class FileOut {
     final file = File(p.join(dir.path, fileName));
     await file.writeAsBytes(bytes, flush: true);
 
-    if (Platform.isAndroid || Platform.isIOS) {
+    if (_isPhone) {
       await Share.shareXFiles([XFile(file.path)]);
-    } else if (Platform.isWindows) {
+    } else if (defaultTargetPlatform == TargetPlatform.windows) {
       try {
         await Process.run('explorer.exe', ['/select,', file.path]);
       } catch (_) {}

@@ -39,6 +39,35 @@ everything stored on the device. Good for testing the four tabs.
 Supabase -> Table Editor -> `shops` -> change `active_until`. After that date the shop is
 blocked in the app and on the server. New shops start with a 30-day trial.
 
+## Run it in a browser (web app, for laptops)
+
+The same app also runs in Chrome / Edge. Data is saved inside the browser
+(works offline after the first visit) and syncs to Supabase like the phone app.
+
+```
+flutter create --platforms=web .          # only if the web/ folder is missing
+dart run sqflite_common_ffi_web:setup     # adds sqlite3.wasm and sqflite_sw.js to web/
+flutter run -d chrome
+flutter build web --release --no-web-resources-cdn
+```
+
+**Hosting (free, automatic):** push to `main`. The workflow `.github/workflows/deploy-web.yml` (move `deploy-web.yml` from the project root into that folder first)
+builds the site and publishes it to GitHub Pages. One-time: repo **Settings -> Pages ->
+Source = GitHub Actions**. The address will be `https://<your-username>.github.io/<repo-name>/`.
+
+**Install like a program:** open the address in Chrome or Edge, then use the
+"Install" icon in the address bar. It gets its own window and desktop icon.
+
+Note: browser data belongs to one browser on one computer. Turn on the cloud (Supabase)
+so shop data is also safe online and shared with phones.
+
+## Categories
+
+Inventory has three sections: **Laptop**, **Computer** (Desktop PC, Gaming PC, All-in-One,
+Mini PC, Workstation, Server) and **Accessory** (keyboard, mouse, LCD, LED, graphic card,
+processor, motherboard, power supply, casing, cooler, HDD, printer, UPS, router and more;
+"Other" lets you type any new type). Excel/CSV import detects these automatically.
+
 ## Build installable files
 
 ```

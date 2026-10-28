@@ -222,7 +222,7 @@ class _ImportScreenState extends State<ImportScreen> {
                             size: 38),
                         title: Text(r.name),
                         subtitle: Text([
-                          r.category == 'Accessory' && r.subcategory.isNotEmpty
+                          r.category != 'Laptop' && r.subcategory.isNotEmpty
                               ? r.subcategory
                               : r.category,
                           if (r.brand.isNotEmpty) r.brand,

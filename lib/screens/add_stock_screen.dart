@@ -55,7 +55,7 @@ class _AddStockScreenState extends State<AddStockScreen> {
   }
 
   String get _subcategory {
-    if (_category != catAccessory) return '';
+    if (_category == catLaptop) return '';
     if (_type == 'Other') return _otherType.text.trim();
     return _type;
   }
@@ -113,21 +113,34 @@ class _AddStockScreenState extends State<AddStockScreen> {
                       label: Text('Laptop'),
                       icon: Icon(Icons.laptop)),
                   ButtonSegment(
+                      value: catComputer,
+                      label: Text('Computer'),
+                      icon: Icon(Icons.desktop_windows_outlined)),
+                  ButtonSegment(
                       value: catAccessory,
                       label: Text('Accessory'),
                       icon: Icon(Icons.mouse_outlined)),
                 ],
                 selected: {_category},
-                onSelectionChanged: (s) => setState(() => _category = s.first),
+                onSelectionChanged: (s) => setState(() {
+                  _category = s.first;
+                  final types = typesFor(_category);
+                  if (types.isNotEmpty && !types.contains(_type)) {
+                    _type = types.first;
+                  }
+                }),
               ),
             ),
-            if (_category == catAccessory && !locked) ...[
+            if (_category != catLaptop && !locked) ...[
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: accessoryTypes.contains(_type) ? _type : 'Other',
-                decoration: const InputDecoration(labelText: 'Accessory type'),
+                value: typesFor(_category).contains(_type) ? _type : 'Other',
+                decoration: InputDecoration(
+                    labelText: _category == catComputer
+                        ? 'Computer type'
+                        : 'Accessory type'),
                 items: [
-                  for (final t in accessoryTypes)
+                  for (final t in typesFor(_category))
                     DropdownMenuItem(value: t, child: Text(t)),
                 ],
                 onChanged: (v) => setState(() => _type = v ?? 'Other'),

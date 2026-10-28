@@ -323,20 +323,61 @@ class Importer {
     'tuf gaming',
   ];
 
+  static const List<String> _computerWords = [
+    'desktop',
+    'all-in-one',
+    'all in one',
+    'mini pc',
+    'gaming pc',
+    'workstation',
+    'optiplex',
+    'prodesk',
+    'thinkcentre',
+    'imac',
+    'mac mini',
+  ];
+
   static String guessCategory(String name, String rawCategory) {
     final c = rawCategory.toLowerCase();
     if (c.contains('laptop') || c.contains('notebook')) return catLaptop;
+    if (c.contains('computer') || c.contains('desktop') || c.trim() == 'pc') {
+      return catComputer;
+    }
     if (c.contains('access')) return catAccessory;
     final n = name.toLowerCase();
     for (final w in _laptopWords) {
       if (n.contains(w) || c.contains(w)) return catLaptop;
     }
+    for (final w in _computerWords) {
+      if (n.contains(w) || c.contains(w)) return catComputer;
+    }
     return catAccessory;
+  }
+
+  static String guessComputerType(String name, String rawCategory) {
+    final text = '${rawCategory.toLowerCase()} ${name.toLowerCase()}';
+    bool has(List<String> words) => words.any(text.contains);
+    if (has(['gaming'])) return 'Gaming PC';
+    if (has(['all-in-one', 'all in one', 'imac', ' aio'])) return 'All-in-One';
+    if (has(['mini pc', 'mac mini', 'nuc'])) return 'Mini PC';
+    if (has(['workstation'])) return 'Workstation';
+    if (has(['server'])) return 'Server';
+    if (has(['desktop', 'optiplex', 'prodesk', 'thinkcentre'])) {
+      return 'Desktop PC';
+    }
+    return 'Other';
   }
 
   static String guessSubcategory(String name, String rawCategory) {
     final text = '${rawCategory.toLowerCase()} ${name.toLowerCase()}';
-    bool has(List<String> words) => words.any(text.contains);
+    // Short words (led, ups, ram...) must match as whole words, so "handled"
+    // or "groups" are not mistaken for LED / UPS.
+    bool has(List<String> words) => words.any((w) {
+          final pattern = w.length <= 4
+              ? RegExp('\\b${RegExp.escape(w)}\\b')
+              : RegExp('\\b${RegExp.escape(w)}');
+          return pattern.hasMatch(text);
+        });
     if (has(['keyboard'])) return 'Keyboard';
     if (has(['mouse', 'mice'])) return 'Mouse';
     if (has(['charger', 'adapter', 'adaptor'])) return 'Charger';
@@ -345,9 +386,26 @@ class Importer {
     }
     if (has(['bag', 'backpack', 'sleeve'])) return 'Bag';
     if (has(['battery'])) return 'Battery';
-    if (has(['ram', 'ssd', 'hdd', 'memory', 'hard disk', 'hard drive'])) {
-      return 'RAM / SSD';
+    if (has(['graphic', 'graphics', 'gpu', 'video card', 'geforce', 'radeon', 'rtx', 'gtx'])) {
+      return 'Graphic card';
     }
+    if (has(['lcd', 'monitor'])) return 'LCD';
+    if (has(['led'])) return 'LED';
+    if (has(['processor', 'cpu', 'ryzen', 'core i3', 'core i5', 'core i7', 'core i9'])) {
+      return 'Processor';
+    }
+    if (has(['motherboard', 'mainboard'])) return 'Motherboard';
+    if (has(['power supply', 'psu', 'smps'])) return 'Power supply';
+    if (has(['casing', 'case ', 'chassis'])) return 'Casing';
+    if (has(['cooler', 'cooling', 'fan'])) return 'Cooler / Fan';
+    if (has(['hdd', 'hard disk', 'hard drive'])) return 'HDD';
+    if (has(['ram', 'ssd', 'memory', 'nvme', 'ddr3', 'ddr4', 'ddr5'])) return 'RAM / SSD';
+    if (has(['printer', 'toner', 'cartridge'])) return 'Printer';
+    if (has(['webcam', 'web cam'])) return 'Webcam';
+    if (has(['speaker'])) return 'Speaker';
+    if (has(['ups', 'inverter'])) return 'UPS';
+    if (has(['router', 'wifi', 'wi-fi', 'lan card', 'switch'])) return 'Router / Network';
+    if (has(['cable', 'hdmi', 'vga', 'usb hub', 'converter'])) return 'Cable / Adapter';
     final raw = rawCategory.trim();
     final r = raw.toLowerCase();
     if (raw.isNotEmpty &&
@@ -396,7 +454,11 @@ class Importer {
       }
       final rawCategory = cell(row, ImportField.category);
       final category = guessCategory(name, rawCategory);
-      final sub = category == catAccessory ? guessSubcategory(name, rawCategory) : '';
+      final sub = category == catAccessory
+          ? guessSubcategory(name, rawCategory)
+          : category == catComputer
+              ? guessComputerType(name, rawCategory)
+              : '';
       var serial = cell(row, ImportField.serial);
       if (qty != 1) serial = '';
       ok.add(ImportRow(

@@ -305,7 +305,15 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
             const VerticalDivider(width: 1),
-            Expanded(child: body),
+            Expanded(
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1280),
+                  child: body,
+                ),
+              ),
+            ),
           ],
         ),
       );

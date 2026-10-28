@@ -9,7 +9,19 @@ DateTime dateOf(Object? v) =>
     DateTime.tryParse(strOf(v))?.toLocal() ?? DateTime.now();
 
 const String catLaptop = 'Laptop';
+const String catComputer = 'Computer';
 const String catAccessory = 'Accessory';
+
+/// Desktop-side machines sold in the Computer section.
+const List<String> computerTypes = [
+  'Desktop PC',
+  'Gaming PC',
+  'All-in-One',
+  'Mini PC',
+  'Workstation',
+  'Server',
+  'Other',
+];
 
 const List<String> accessoryTypes = [
   'Keyboard',
@@ -19,8 +31,33 @@ const List<String> accessoryTypes = [
   'Bag',
   'Battery',
   'RAM / SSD',
+  'LCD',
+  'LED',
+  'Graphic card',
+  'Processor',
+  'Motherboard',
+  'Power supply',
+  'Casing',
+  'Cooler / Fan',
+  'HDD',
+  'Printer',
+  'Webcam',
+  'Speaker',
+  'UPS',
+  'Router / Network',
+  'Cable / Adapter',
   'Other',
 ];
+
+/// Categories shown in the app, in order.
+const List<String> allCategories = [catLaptop, catComputer, catAccessory];
+
+/// The sub-types a category offers (empty for Laptop).
+List<String> typesFor(String category) {
+  if (category == catComputer) return computerTypes;
+  if (category == catAccessory) return accessoryTypes;
+  return const [];
+}
 
 class ProductStock {
   ProductStock({
@@ -57,7 +94,7 @@ class ProductStock {
   String get brandModel =>
       [brand, model].where((s) => s.trim().isNotEmpty).join(' ');
 
-  String get typeLabel => category == catAccessory && subcategory.isNotEmpty
+  String get typeLabel => category != catLaptop && subcategory.isNotEmpty
       ? subcategory
       : category;
 

@@ -1,9 +1,11 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart' as ffi;
+import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart' as ffiweb;
 
 /// Local SQLite database. Everything is saved here first, so the app works
 /// with no internet. The SyncService copies changes to/from the cloud.
@@ -25,6 +27,14 @@ class AppDb {
 
   Future<void> open() async {
     if (_db != null) return;
+    if (kIsWeb) {
+      // Browser: SQLite runs as WebAssembly and saves into the browser's
+      // IndexedDB, so the data stays on this computer and works offline.
+      // Needs web/sqlite3.wasm and web/sqflite_sw.js (made by the build).
+      databaseFactory = ffiweb.databaseFactoryFfiWeb;
+      _db = await openDatabase('dukandar_web.db', version: 1, onCreate: _create);
+      return;
+    }
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
       ffi.sqfliteFfiInit();
       databaseFactory = ffi.databaseFactoryFfi;
