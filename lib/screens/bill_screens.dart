@@ -432,19 +432,13 @@ class _NewBillScreenState extends State<NewBillScreen> {
             ),
           ),
           const SizedBox(height: 14),
-          SegmentedButton<bool>(
-            segments: const [
-              ButtonSegment(
-                  value: false,
-                  icon: Icon(Icons.check_circle_outline),
-                  label: Text('Paid in full')),
-              ButtonSegment(
-                  value: true,
-                  icon: Icon(Icons.schedule),
-                  label: Text('Part / pay later')),
+          ChoiceTiles<bool>(
+            selected: _payPart,
+            options: const [
+              ChoiceOption(false, 'Paid in full', Icons.check_circle_outline),
+              ChoiceOption(true, 'Part / pay later', Icons.schedule),
             ],
-            selected: {_payPart},
-            onSelectionChanged: (s) => setState(() => _payPart = s.first),
+            onChanged: (v) => setState(() => _payPart = v),
           ),
           if (_payPart) ...[
             const SizedBox(height: 12),

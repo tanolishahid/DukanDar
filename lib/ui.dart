@@ -737,3 +737,90 @@ class _ProductPickerState extends State<_ProductPicker> {
     );
   }
 }
+
+// ------------------------------------------------------------ choice tiles
+
+class ChoiceOption<T> {
+  const ChoiceOption(this.value, this.label, this.icon);
+
+  final T value;
+  final String label;
+  final IconData icon;
+}
+
+/// A row of equal-width tiles (icon above a short label). Unlike a segmented
+/// button the text never wraps or breaks in the middle of a word, so it looks
+/// right on small phones, tablets and big screens alike.
+class ChoiceTiles<T> extends StatelessWidget {
+  const ChoiceTiles({
+    super.key,
+    required this.options,
+    required this.selected,
+    required this.onChanged,
+    this.enabled = true,
+  });
+
+  final List<ChoiceOption<T>> options;
+  final T selected;
+  final ValueChanged<T> onChanged;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Opacity(
+      opacity: enabled ? 1 : 0.55,
+      child: Row(
+        children: [
+          for (var i = 0; i < options.length; i++) ...[
+            if (i > 0) const SizedBox(width: 8),
+            Expanded(child: _tile(context, scheme, options[i])),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _tile(BuildContext context, ColorScheme scheme, ChoiceOption<T> o) {
+    final isSelected = o.value == selected;
+    final fg = isSelected ? scheme.onPrimaryContainer : scheme.onSurfaceVariant;
+    return Material(
+      color: isSelected
+          ? scheme.primaryContainer
+          : scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: isSelected ? scheme.primary : scheme.outlineVariant,
+          width: isSelected ? 1.6 : 1,
+        ),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: enabled ? () => onChanged(o.value) : null,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(isSelected ? Icons.check_circle : o.icon, color: fg, size: 24),
+              const SizedBox(height: 6),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  o.label,
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                    color: fg,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

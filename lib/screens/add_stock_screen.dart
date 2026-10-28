@@ -107,32 +107,22 @@ class _AddStockScreenState extends State<AddStockScreen> {
                   (v == null || v.trim().isEmpty) ? 'Enter the product name' : null,
             ),
             const SizedBox(height: 16),
-            IgnorePointer(
-              ignoring: locked,
-              child: SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(
-                      value: catLaptop,
-                      label: Text('Laptop'),
-                      icon: Icon(Icons.laptop)),
-                  ButtonSegment(
-                      value: catComputer,
-                      label: Text('Computer'),
-                      icon: Icon(Icons.desktop_windows_outlined)),
-                  ButtonSegment(
-                      value: catAccessory,
-                      label: Text('Accessory'),
-                      icon: Icon(Icons.mouse_outlined)),
-                ],
-                selected: {_category},
-                onSelectionChanged: (s) => setState(() {
-                  _category = s.first;
-                  final types = typesFor(_category);
-                  if (types.isNotEmpty && !types.contains(_type)) {
-                    _type = types.first;
-                  }
-                }),
-              ),
+            ChoiceTiles<String>(
+              enabled: !locked,
+              selected: _category,
+              options: const [
+                ChoiceOption(catLaptop, 'Laptop', Icons.laptop),
+                ChoiceOption(
+                    catComputer, 'Computer', Icons.desktop_windows_outlined),
+                ChoiceOption(catAccessory, 'Accessory', Icons.mouse_outlined),
+              ],
+              onChanged: (c) => setState(() {
+                _category = c;
+                final types = typesFor(_category);
+                if (types.isNotEmpty && !types.contains(_type)) {
+                  _type = types.first;
+                }
+              }),
             ),
             if (_category != catLaptop && !locked) ...[
               const SizedBox(height: 16),
@@ -164,7 +154,7 @@ class _AddStockScreenState extends State<AddStockScreen> {
                     controller: _brand,
                     enabled: !locked,
                     textCapitalization: TextCapitalization.words,
-                    decoration: const InputDecoration(labelText: 'Brand (e.g. HP)'),
+                    decoration: const InputDecoration(labelText: 'Brand', hintText: 'e.g. HP'),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -173,7 +163,7 @@ class _AddStockScreenState extends State<AddStockScreen> {
                     controller: _model,
                     enabled: !locked,
                     decoration:
-                        const InputDecoration(labelText: 'Model (e.g. ProBook 450)'),
+                        const InputDecoration(labelText: 'Model', hintText: 'e.g. ProBook 450'),
                   ),
                 ),
               ],
@@ -216,6 +206,7 @@ class _AddStockScreenState extends State<AddStockScreen> {
               decoration: const InputDecoration(
                 labelText: 'Serial number (optional)',
                 helperText: 'Add one item at a time when you enter a serial number',
+                helperMaxLines: 2,
               ),
             ),
             const SizedBox(height: 8),
