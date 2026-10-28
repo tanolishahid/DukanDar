@@ -151,9 +151,15 @@ class SaleRow {
     required this.note,
     required this.creditId,
     required this.soldAt,
+    this.billId = '',
+    this.listPrice,
   });
 
   final String id;
+  final String billId;
+
+  /// Price shown on the bill before the bill discount. Null on old sales.
+  final double? listPrice;
   final String productId;
   final String productName;
   final String brandModel;
@@ -171,10 +177,21 @@ class SaleRow {
   double get profit => revenue - cost - extraCost;
   bool get isCredit => creditId.isNotEmpty;
 
+  /// What the bill shows for this line (before the bill discount).
+  double get shownPrice => listPrice ?? unitPrice;
+  double get shownTotal => qty * shownPrice;
+
+  /// A repair / service line has no product in stock.
+  bool get isService => productId.isEmpty;
+
   factory SaleRow.fromMap(Map<String, Object?> m) => SaleRow(
         id: strOf(m['id']),
+        billId: strOf(m['bill_id']),
+        listPrice: m['list_price'] == null ? null : numOf(m['list_price']),
         productId: strOf(m['product_id']),
-        productName: strOf(m['product_name']),
+        productName: strOf(m['product_name']).isNotEmpty
+            ? strOf(m['product_name'])
+            : strOf(m['item_name']),
         brandModel: [strOf(m['brand']), strOf(m['model'])]
             .where((s) => s.trim().isNotEmpty)
             .join(' '),
@@ -187,6 +204,53 @@ class SaleRow {
         creditId: strOf(m['credit_id']),
         soldAt: dateOf(m['sold_at']),
       );
+}
+
+/// One bill (slip): many lines, a discount, and what has been paid.
+/// Sales made before bills existed appear as a bill with a single line.
+class BillRow {
+  BillRow({
+    required this.id,
+    required this.billNo,
+    required this.customer,
+    required this.phone,
+    required this.note,
+    required this.discount,
+    required this.total,
+    required this.paid,
+    required this.billedAt,
+    required this.lines,
+    required this.creditId,
+    required this.isLegacy,
+  });
+
+  final String id;
+  final String billNo;
+  final String customer;
+  final String phone;
+  final String note;
+  final double discount;
+
+  /// Amount to pay, after the discount.
+  final double total;
+  final double paid;
+  final DateTime billedAt;
+  final List<SaleRow> lines;
+  final String creditId;
+  final bool isLegacy;
+
+  double get balance => total - paid;
+  bool get hasBalance => balance > 0.004;
+  double get subtotal => lines.fold(0.0, (a, l) => a + l.shownTotal);
+  double get profit => lines.fold(0.0, (a, l) => a + l.profit);
+  int get itemCount => lines.fold(0, (a, l) => a + l.qty);
+  bool get isRepairOnly => lines.isNotEmpty && lines.every((l) => l.isService);
+
+  /// "Laptop, Mouse, Repair" for lists.
+  String get summary {
+    final names = lines.map((l) => l.productName).where((n) => n.isNotEmpty);
+    return names.join(', ');
+  }
 }
 
 class CreditRow {

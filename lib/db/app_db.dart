@@ -23,6 +23,7 @@ class AppDb {
     'sales',
     'credits',
     'credit_payments',
+    'bills',
   ];
 
   Future<void> open() async {
@@ -32,7 +33,7 @@ class AppDb {
       // IndexedDB, so the data stays on this computer and works offline.
       // Needs web/sqlite3.wasm and web/sqflite_sw.js (made by the build).
       databaseFactory = ffiweb.databaseFactoryFfiWeb;
-      _db = await openDatabase('dukandar_web.db', version: 1, onCreate: _create);
+      _db = await openDatabase('dukandar_web.db', version: 2, onCreate: _create, onUpgrade: _upgrade);
       return;
     }
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
@@ -42,7 +43,7 @@ class AppDb {
     final dir = await getApplicationSupportDirectory();
     await dir.create(recursive: true);
     final path = p.join(dir.path, 'dukandar.db');
-    _db = await openDatabase(path, version: 1, onCreate: _create);
+    _db = await openDatabase(path, version: 2, onCreate: _create, onUpgrade: _upgrade);
   }
 
   static const String _common =
@@ -84,6 +85,9 @@ CREATE TABLE sales (
   credit_id TEXT,
   sold_at TEXT NOT NULL,
   created_by TEXT,
+  bill_id TEXT NOT NULL DEFAULT '',
+  list_price REAL,
+  item_name TEXT NOT NULL DEFAULT '',
   $_common
 )''');
     await db.execute('''
@@ -111,11 +115,43 @@ CREATE TABLE credit_payments (
   created_by TEXT,
   $_common
 )''');
+    await _createBills(db);
+    await db.execute('CREATE INDEX idx_sales_bill ON sales(bill_id)');
     await db.execute('CREATE INDEX idx_batches_product ON batches(product_id)');
     await db.execute('CREATE INDEX idx_sales_product ON sales(product_id)');
     await db.execute('CREATE INDEX idx_sales_sold ON sales(sold_at)');
     await db.execute(
         'CREATE INDEX idx_payments_credit ON credit_payments(credit_id)');
+  }
+
+  Future<void> _createBills(Database db) async {
+    await db.execute('''
+CREATE TABLE bills (
+  id TEXT PRIMARY KEY,
+  bill_no TEXT NOT NULL,
+  customer TEXT,
+  phone TEXT,
+  note TEXT,
+  discount REAL NOT NULL DEFAULT 0,
+  total REAL NOT NULL DEFAULT 0,
+  credit_id TEXT NOT NULL DEFAULT '',
+  billed_at TEXT NOT NULL,
+  created_by TEXT,
+  $_common
+)''');
+    await db.execute('CREATE INDEX idx_bills_at ON bills(billed_at)');
+  }
+
+  /// Version 1 -> 2: bills with many items, repair lines and a discount.
+  /// Old sales stay exactly as they were (each one shows as a one-item bill).
+  Future<void> _upgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute("ALTER TABLE sales ADD COLUMN bill_id TEXT NOT NULL DEFAULT ''");
+      await db.execute('ALTER TABLE sales ADD COLUMN list_price REAL');
+      await db.execute("ALTER TABLE sales ADD COLUMN item_name TEXT NOT NULL DEFAULT ''");
+      await _createBills(db);
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_sales_bill ON sales(bill_id)');
+    }
   }
 
   /// Removes all shop data from this device (used when a different shop

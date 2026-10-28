@@ -61,6 +61,27 @@ Source = GitHub Actions**. The address will be `https://<your-username>.github.i
 Note: browser data belongs to one browser on one computer. Turn on the cloud (Supabase)
 so shop data is also safe online and shared with phones.
 
+## Bills, repairs, discounts and printing
+
+Sales are now **bills**: one bill can hold many items (laptop, mouse, USB...), repair / service
+lines, a discount for the whole bill, and a part payment (the rest goes to the Credit tab).
+A customer who only comes for a repair gets a repair-only bill.
+
+After saving, **Print slip** (58 mm roll, 80 mm roll or A4) or **Share as PDF**. The slip shows the
+shop name, address and phone, never your purchase price or profit. Everything works offline.
+
+**Shop name, phone and address** are asked when the owner creates the shop. The owner can change
+them later in the menu: *Shop name, phone, address*.
+
+**Past sales:** Sales > *Import past sales* brings in years of history from Excel (see
+`DukanDar_past_sales_import_template.xlsx`). Old sales do not change current stock.
+
+### Upgrading an existing Supabase project (do this BEFORE installing the new app)
+
+Supabase > SQL Editor > New query > paste `supabase/migration_002_bills.sql` > Run.
+Then update every phone / computer to the new version. New projects run `schema.sql` first and
+the migration after it.
+
 ## Categories
 
 Inventory has three sections: **Laptop**, **Computer** (Desktop PC, Gaming PC, All-in-One,

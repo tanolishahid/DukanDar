@@ -13,6 +13,7 @@ import '../ui.dart';
 import 'credit_tab.dart';
 import 'dashboard_tab.dart';
 import 'inventory_tab.dart';
+import 'bill_screens.dart';
 import 'sales_tab.dart';
 import 'staff_screen.dart';
 
@@ -75,6 +76,9 @@ class _HomeScreenState extends State<HomeScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (s.shopAddress.isNotEmpty) Text(s.shopAddress),
+            if (s.shopPhone.isNotEmpty) Text('Phone: ${s.shopPhone}'),
+            const SizedBox(height: 6),
             Text('Signed in as: ${s.displayName} (${s.role})'),
             if (!s.isLocalMode) ...[
               const SizedBox(height: 8),
@@ -252,6 +256,9 @@ class _HomeScreenState extends State<HomeScreen> {
               case 'info':
                 _showShopInfo(session);
                 break;
+              case 'shop':
+                await showShopDetailsDialog(context);
+                break;
               case 'look':
                 _showAppearance();
                 break;
@@ -274,6 +281,9 @@ class _HomeScreenState extends State<HomeScreen> {
           },
           itemBuilder: (ctx) => [
             const PopupMenuItem(value: 'info', child: Text('Shop info')),
+            if (session.isOwner)
+              const PopupMenuItem(
+                  value: 'shop', child: Text('Shop name, phone, address')),
             const PopupMenuItem(value: 'look', child: Text('Appearance')),
             if (session.isOwner && !session.isLocalMode)
               const PopupMenuItem(value: 'staff', child: Text('Staff')),

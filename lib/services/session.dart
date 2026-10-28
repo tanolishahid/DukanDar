@@ -37,6 +37,8 @@ class SessionState extends ChangeNotifier {
   String shopId = 'local';
   String shopName = 'My Shop';
   String shopCode = '';
+  String shopPhone = '';
+  String shopAddress = '';
   String userId = 'local';
   String displayName = 'Owner';
   Set<String> perms = <String>{};
@@ -77,6 +79,8 @@ class SessionState extends ChangeNotifier {
       role = 'owner';
       shopId = 'local';
       shopName = _prefs.getString('local_shop_name') ?? 'My Shop';
+      shopPhone = _prefs.getString('local_shop_phone') ?? '';
+      shopAddress = _prefs.getString('local_shop_address') ?? '';
       displayName = 'Owner';
       userId = 'local';
       notifyListeners();
@@ -103,6 +107,8 @@ class SessionState extends ChangeNotifier {
     shopId = (m['shopId'] ?? '') as String;
     shopName = (m['shopName'] ?? '') as String;
     shopCode = (m['shopCode'] ?? '') as String;
+    shopPhone = (m['shopPhone'] ?? '') as String;
+    shopAddress = (m['shopAddress'] ?? '') as String;
     userId = (m['userId'] ?? '') as String;
     displayName = (m['displayName'] ?? '') as String;
     perms = ((m['perms'] ?? <dynamic>[]) as List<dynamic>)
@@ -120,6 +126,8 @@ class SessionState extends ChangeNotifier {
         'shopId': shopId,
         'shopName': shopName,
         'shopCode': shopCode,
+        'shopPhone': shopPhone,
+        'shopAddress': shopAddress,
         'userId': userId,
         'displayName': displayName,
         'perms': perms.toList(),
@@ -135,6 +143,30 @@ class SessionState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Owner changes the shop name, phone and address printed on bills.
+  Future<void> updateShopProfile(
+      {required String name,
+      required String phone,
+      required String address}) async {
+    final cleanName = name.trim().isEmpty ? shopName : name.trim();
+    if (isLocalMode) {
+      await _prefs.setString('local_shop_name', cleanName);
+      await _prefs.setString('local_shop_phone', phone.trim());
+      await _prefs.setString('local_shop_address', address.trim());
+    } else {
+      await _client.rpc('update_shop_profile', params: {
+        'p_name': cleanName,
+        'p_phone': phone.trim(),
+        'p_address': address.trim(),
+      });
+    }
+    shopName = cleanName;
+    shopPhone = phone.trim();
+    shopAddress = address.trim();
+    if (!isLocalMode) await _save();
+    notifyListeners();
+  }
+
   // -------------------------------------------------------------- sign in
 
   /// A new shop owner creates an account and their shop.
@@ -143,6 +175,8 @@ class SessionState extends ChangeNotifier {
     required String password,
     required String shopName,
     required String ownerName,
+    String phone = '',
+    String address = '',
   }) async {
     final res = await _client.auth.signUp(email: email, password: password);
     if (res.session == null) {
@@ -152,6 +186,8 @@ class SessionState extends ChangeNotifier {
     await _client.rpc('create_shop', params: {
       'p_shop_name': shopName,
       'p_display_name': ownerName,
+      'p_phone': phone,
+      'p_address': address,
     });
     await _loadMembership();
   }
@@ -229,6 +265,8 @@ class SessionState extends ChangeNotifier {
       'shopId': newShopId,
       'shopName': shop['name'],
       'shopCode': shop['code'],
+      'shopPhone': shop['phone'] ?? '',
+      'shopAddress': shop['address'] ?? '',
       'userId': uid,
       'displayName': m['display_name'] ?? '',
       'perms': m['perms'] ?? <dynamic>[],
@@ -264,6 +302,8 @@ class SessionState extends ChangeNotifier {
         'shopId': m['shop_id'],
         'shopName': shop['name'],
         'shopCode': shop['code'],
+        'shopPhone': shop['phone'] ?? '',
+        'shopAddress': shop['address'] ?? '',
         'userId': uid,
         'displayName': m['display_name'] ?? '',
         'perms': m['perms'] ?? <dynamic>[],

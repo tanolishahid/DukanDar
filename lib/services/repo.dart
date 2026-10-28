@@ -285,13 +285,16 @@ ORDER BY p.name COLLATE NOCASE
 
   /// Cost per unit of the next [qty] units, oldest purchase first (FIFO).
   /// Null when there is not enough stock.
-  Future<double?> fifoUnitCost(String productId, int qty) async {
+  Future<double?> fifoUnitCost(String productId, int qty) =>
+      _fifo(_db, productId, qty);
+
+  Future<double?> _fifo(DatabaseExecutor db, String productId, int qty) async {
     if (qty <= 0) return null;
-    final batches = await _db.query('batches',
+    final batches = await db.query('batches',
         where: 'product_id = ? AND deleted = 0',
         whereArgs: [productId],
         orderBy: 'purchased_at ASC');
-    final soldRows = await _db.rawQuery(
+    final soldRows = await db.rawQuery(
         'SELECT COALESCE(SUM(qty), 0) AS q FROM sales WHERE product_id = ? AND deleted = 0',
         [productId]);
     var skip = intOf(soldRows.first['q']);
@@ -362,6 +365,340 @@ ORDER BY s.sold_at DESC
 ''', [_iso(from), _iso(to)]);
     return rows.map(SaleRow.fromMap).toList();
   }
+
+
+  // ---------------------------------------------------------------- bills
+
+  String _billNo(DateTime d, String id) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    return 'B${two(d.year % 100)}${two(d.month)}${two(d.day)}-'
+        '${id.substring(0, 3).toUpperCase()}';
+  }
+
+  /// Saves one bill (slip) with any number of items and repair / service
+  /// lines. Stock goes down per item (oldest purchase first), the discount is
+  /// shared over the lines so profit stays right, and if the customer pays
+  /// only part, one credit entry is created for the rest.
+  ///
+  /// [paidNow] null means "paid in full". [when] is only used when importing
+  /// old data.
+  Future<String?> addBill({
+    required String customer,
+    String phone = '',
+    String note = '',
+    required List<BillLineInput> lines,
+    double discount = 0,
+    double? paidNow,
+    String expectedDate = '',
+    DateTime? when,
+  }) async {
+    if (lines.isEmpty) return 'Add at least one item or service.';
+    for (final l in lines) {
+      if (l.qty <= 0) return 'Quantity must be at least 1.';
+      if (l.price < 0) return 'A price cannot be negative.';
+      if (l.productId.isEmpty && l.name.trim().isEmpty) {
+        return 'Write a description for the repair / service line.';
+      }
+    }
+    final subtotal = lines.fold(0.0, (a, l) => a + l.qty * l.price);
+    if (discount < 0 || discount > subtotal + 0.004) {
+      return 'The discount cannot be more than the bill total.';
+    }
+    final total = subtotal - discount;
+    final paid = paidNow ?? total;
+    if (paid < 0 || paid > total + 0.004) {
+      return 'The amount received must be between 0 and the total.';
+    }
+    final balance = total - paid;
+    if (balance > 0.004) {
+      if (customer.trim().isEmpty) {
+        return 'Enter the customer name when part of the bill is unpaid.';
+      }
+      if (expectedDate.isEmpty) {
+        return 'Choose the date the customer will pay the rest.';
+      }
+    }
+
+    final billBase = _base();
+    final billId = billBase['id'] as String;
+    final moment = when ?? DateTime.now();
+    final at = moment.toUtc().toIso8601String();
+    final billNo = _billNo(moment, billId);
+    var creditId = '';
+
+    try {
+      await _db.transaction((txn) async {
+        final names = <String>[];
+        var qtyTotal = 0;
+        for (final l in lines) {
+          final lineSub = l.qty * l.price;
+          final share = subtotal <= 0 ? 0.0 : discount * lineSub / subtotal;
+          final effUnit = (lineSub - share) / l.qty;
+          double unitCost = l.unitCost;
+          if (l.productId.isNotEmpty) {
+            final c = await _fifo(txn, l.productId, l.qty);
+            if (c == null) throw _BillError('Not enough stock for ${l.name}.');
+            unitCost = c;
+          }
+          await txn.insert('sales', {
+            ..._base(),
+            'product_id': l.productId,
+            'qty': l.qty,
+            'unit_price': effUnit,
+            'unit_cost': unitCost,
+            'extra_cost': l.extraCost,
+            'customer': customer.trim(),
+            'note': note.trim(),
+            'credit_id': '',
+            'sold_at': at,
+            'created_by': session.userId,
+            'bill_id': billId,
+            'list_price': l.price,
+            'item_name': l.productId.isEmpty ? l.name.trim() : '',
+          });
+          names.add(l.name.trim());
+          qtyTotal += l.qty;
+        }
+
+        if (balance > 0.004) {
+          final creditBase = _base();
+          creditId = creditBase['id'] as String;
+          var label = 'Bill $billNo: ${names.join(', ')}';
+          if (label.length > 90) label = '${label.substring(0, 87)}...';
+          await txn.insert('credits', {
+            ...creditBase,
+            'sale_id': '',
+            'product_id': '',
+            'product_name': label,
+            'customer_name': customer.trim(),
+            'phone': phone.trim(),
+            'qty': qtyTotal,
+            'total_due': total,
+            'taken_at': at,
+            'expected_date': expectedDate,
+            'note': note.trim(),
+            'created_by': session.userId,
+          });
+          if (paid > 0.004) {
+            await txn.insert('credit_payments', {
+              ..._base(),
+              'credit_id': creditId,
+              'amount': paid,
+              'paid_at': at,
+              'created_by': session.userId,
+            });
+          }
+        }
+
+        await txn.insert('bills', {
+          ...billBase,
+          'bill_no': billNo,
+          'customer': customer.trim(),
+          'phone': phone.trim(),
+          'note': note.trim(),
+          'discount': discount,
+          'total': total,
+          'credit_id': creditId,
+          'billed_at': at,
+          'created_by': session.userId,
+        });
+      });
+    } on _BillError catch (e) {
+      return e.message;
+    }
+    lastBillId = billId;
+    _changed(credits: creditId.isNotEmpty);
+    return null;
+  }
+
+  /// The bill saved most recently (so the screen can offer to print it).
+  String lastBillId = '';
+
+  /// Bills in a date range, newest first. Sales from before bills existed
+  /// appear as one-line bills.
+  Future<List<BillRow>> bills(DateTime from, DateTime to) async {
+    final lines = await sales(from, to);
+    final billRows = await _db.query('bills',
+        where: 'deleted = 0 AND billed_at >= ? AND billed_at < ?',
+        whereArgs: [_iso(from), _iso(to)]);
+    final paidRows = await _db.rawQuery(
+        'SELECT credit_id, SUM(amount) AS paid FROM credit_payments '
+        'WHERE deleted = 0 GROUP BY credit_id');
+    final paidBy = <String, double>{
+      for (final r in paidRows) strOf(r['credit_id']): numOf(r['paid'])
+    };
+
+    final byBill = <String, List<SaleRow>>{};
+    final out = <BillRow>[];
+    for (final l in lines) {
+      if (l.billId.isEmpty) {
+        out.add(BillRow(
+          id: l.id,
+          billNo: '',
+          customer: l.customer,
+          phone: '',
+          note: l.note,
+          discount: 0,
+          total: l.revenue,
+          paid: l.isCredit ? (paidBy[l.creditId] ?? 0) : l.revenue,
+          billedAt: l.soldAt,
+          lines: [l],
+          creditId: l.creditId,
+          isLegacy: true,
+        ));
+      } else {
+        byBill.putIfAbsent(l.billId, () => []).add(l);
+      }
+    }
+    for (final b in billRows) {
+      final id = strOf(b['id']);
+      final billLines = byBill[id] ?? const <SaleRow>[];
+      if (billLines.isEmpty) continue;
+      final creditId = strOf(b['credit_id']);
+      final total = numOf(b['total']);
+      out.add(BillRow(
+        id: id,
+        billNo: strOf(b['bill_no']),
+        customer: strOf(b['customer']),
+        phone: strOf(b['phone']),
+        note: strOf(b['note']),
+        discount: numOf(b['discount']),
+        total: total,
+        paid: creditId.isEmpty ? total : (paidBy[creditId] ?? 0),
+        billedAt: dateOf(b['billed_at']),
+        lines: billLines,
+        creditId: creditId,
+        isLegacy: false,
+      ));
+    }
+    out.sort((a, b) => b.billedAt.compareTo(a.billedAt));
+    return out;
+  }
+
+  /// One bill by id. [near] is roughly when it was made (makes this fast).
+  Future<BillRow?> billById(String id, {DateTime? near}) async {
+    final centre = near ?? DateTime.now();
+    final list = await bills(centre.subtract(const Duration(days: 1)),
+        centre.add(const Duration(days: 1)));
+    for (final b in list) {
+      if (b.id == id) return b;
+    }
+    return null;
+  }
+
+  /// Deletes a whole bill: stock goes back and any credit entry is removed.
+  Future<String?> deleteBill(BillRow bill) async {
+    if (bill.isLegacy) {
+      return deleteSale(bill.lines.first.id);
+    }
+    await _db.transaction((txn) async {
+      Future<void> soft(String table, String where, List<Object?> args) =>
+          txn.update(table,
+              {'deleted': 1, 'updated_at': _now(), 'synced': 0},
+              where: where, whereArgs: args);
+      await soft('bills', 'id = ?', [bill.id]);
+      await soft('sales', 'bill_id = ?', [bill.id]);
+      if (bill.creditId.isNotEmpty) {
+        await soft('credits', 'id = ?', [bill.creditId]);
+        await soft('credit_payments', 'credit_id = ?', [bill.creditId]);
+      }
+    });
+    _changed(credits: bill.creditId.isNotEmpty);
+    return null;
+  }
+
+  /// Imports old bills from the "past sales" Excel file. Old items do not
+  /// touch today's stock. Returns a short message and the skipped rows.
+  Future<PastImportResult> importPastBills(List<PastBill> bills) async {
+    var done = 0;
+    final problems = <String>[];
+    // One big transaction is much faster for thousands of bills.
+    final stamp = _now();
+    await _db.transaction((txn) async {
+      for (final b in bills) {
+        final subtotal = b.lines.fold(0.0, (a, l) => a + l.qty * l.price);
+        if (subtotal <= 0) {
+          problems.add('${b.label}: total is zero');
+          continue;
+        }
+        final discount = b.discount.clamp(0, subtotal).toDouble();
+        final total = subtotal - discount;
+        final received = (b.received ?? total).clamp(0, total).toDouble();
+        final balance = total - received;
+        final billBase = _base();
+        final billId = billBase['id'] as String;
+        final at = b.date.toUtc().toIso8601String();
+        var creditId = '';
+        for (final l in b.lines) {
+          final lineSub = l.qty * l.price;
+          final share = discount * lineSub / subtotal;
+          await txn.insert('sales', {
+            ..._base(),
+            'product_id': '',
+            'qty': l.qty,
+            'unit_price': (lineSub - share) / l.qty,
+            'unit_cost': l.unitCost,
+            'extra_cost': l.extraCost,
+            'customer': b.customer,
+            'note': 'Imported',
+            'credit_id': '',
+            'sold_at': at,
+            'created_by': session.userId,
+            'bill_id': billId,
+            'list_price': l.price,
+            'item_name': l.name,
+          });
+        }
+        if (balance > 0.004) {
+          final cb = _base();
+          creditId = cb['id'] as String;
+          var label = 'Bill ${b.billNo}: ${b.lines.map((l) => l.name).join(', ')}';
+          if (label.length > 90) label = '${label.substring(0, 87)}...';
+          await txn.insert('credits', {
+            ...cb,
+            'sale_id': '',
+            'product_id': '',
+            'product_name': label,
+            'customer_name': b.customer.isEmpty ? 'Walk-in customer' : b.customer,
+            'phone': b.phone,
+            'qty': b.lines.fold(0, (a, l) => a + l.qty),
+            'total_due': total,
+            'taken_at': at,
+            'expected_date': isoDayOf(b.date.add(const Duration(days: 30))),
+            'note': 'Imported',
+            'created_by': session.userId,
+          });
+          if (received > 0.004) {
+            await txn.insert('credit_payments', {
+              ..._base(),
+              'credit_id': creditId,
+              'amount': received,
+              'paid_at': at,
+              'created_by': session.userId,
+            });
+          }
+        }
+        await txn.insert('bills', {
+          ...billBase,
+          'bill_no': b.billNo.isEmpty ? _billNo(b.date, billId) : b.billNo,
+          'customer': b.customer,
+          'phone': b.phone,
+          'note': 'Imported',
+          'discount': discount,
+          'total': total,
+          'credit_id': creditId,
+          'billed_at': at,
+          'created_by': session.userId,
+        });
+        done++;
+      }
+    });
+    if (stamp.isNotEmpty) _changed(credits: true);
+    return PastImportResult(done, problems);
+  }
+
+  String isoDayOf(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   String _iso(DateTime d) => d.toUtc().toIso8601String();
 
@@ -489,6 +826,16 @@ ORDER BY c.expected_date ASC, c.taken_at ASC
     final saleId = strOf(rows.first['sale_id']);
     await _softDelete('credits', creditId);
     if (saleId.isNotEmpty) await _softDelete('sales', saleId);
+    // A credit that belongs to a multi-item bill removes the whole bill.
+    final billRows = await _db.query('bills',
+        columns: ['id'], where: 'credit_id = ? AND deleted = 0', whereArgs: [creditId]);
+    for (final b in billRows) {
+      final billId = b['id'] as String;
+      await _softDelete('bills', billId);
+      await _db.update(
+          'sales', {'deleted': 1, 'updated_at': _now(), 'synced': 0},
+          where: 'bill_id = ?', whereArgs: [billId]);
+    }
     final pays = await _db.query('credit_payments',
         columns: ['id'], where: 'credit_id = ? AND deleted = 0', whereArgs: [creditId]);
     for (final p in pays) {
@@ -596,4 +943,67 @@ WHERE b.deleted = 0 AND b.purchased_at >= ? AND b.purchased_at < ?
 ORDER BY b.purchased_at ASC
 ''', [_iso(from), _iso(to)]);
   }
+}
+
+/// One line the cashier adds to a bill. [productId] is empty for a
+/// repair / service line (no stock). [extraCost] is what that line cost you
+/// (parts, labour, delivery) - it reduces profit but is not shown on the slip.
+class BillLineInput {
+  BillLineInput({
+    this.productId = '',
+    required this.name,
+    this.qty = 1,
+    required this.price,
+    this.extraCost = 0,
+    this.unitCost = 0,
+  });
+
+  final String productId;
+  final String name;
+  int qty;
+  double price;
+  double extraCost;
+
+  /// Only for old imported lines; stock items use the purchase price.
+  final double unitCost;
+
+  bool get isService => productId.isEmpty;
+}
+
+class _BillError implements Exception {
+  _BillError(this.message);
+  final String message;
+}
+
+/// An old bill read from the "past sales" Excel file.
+class PastBill {
+  PastBill({
+    required this.billNo,
+    required this.date,
+    required this.customer,
+    required this.phone,
+    required this.lines,
+    this.discount = 0,
+    this.received,
+    required this.label,
+  });
+
+  final String billNo;
+  final DateTime date;
+  final String customer;
+  final String phone;
+  final List<BillLineInput> lines;
+  final double discount;
+
+  /// Null = paid in full.
+  final double? received;
+
+  /// For messages ("row 12").
+  final String label;
+}
+
+class PastImportResult {
+  PastImportResult(this.bills, this.problems);
+  final int bills;
+  final List<String> problems;
 }

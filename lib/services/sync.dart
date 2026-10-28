@@ -76,7 +76,7 @@ class SyncService extends ChangeNotifier {
     notifyListeners();
     try {
       await _push(client).timeout(const Duration(seconds: 60));
-      await _pull(client).timeout(const Duration(seconds: 60));
+      await _pull(client).timeout(const Duration(minutes: 10));
       lastSync = DateTime.now();
       offline = false;
       _cycles++;
@@ -103,7 +103,7 @@ class SyncService extends ChangeNotifier {
     final db = AppDb.instance.db;
     for (final t in AppDb.syncTables) {
       while (true) {
-        final rows = await db.query(t, where: 'synced = 0', limit: 200);
+        final rows = await db.query(t, where: 'synced = 0', limit: 500);
         if (rows.isEmpty) break;
         final payload = rows.map((r) {
           final m = Map<String, Object?>.from(r);
@@ -137,7 +137,7 @@ class SyncService extends ChangeNotifier {
             .select()
             .gt('server_ts', filterTs)
             .order('server_ts', ascending: true)
-            .limit(500);
+            .limit(1000);
         if (rows.isEmpty) break;
 
         await db.transaction((txn) async {
@@ -163,7 +163,7 @@ class SyncService extends ChangeNotifier {
           }
         });
         await prefs.setString('pull_$t', last);
-        if (rows.length < 500) break;
+        if (rows.length < 1000) break;
       }
     }
   }

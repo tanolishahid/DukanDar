@@ -24,6 +24,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final _password = TextEditingController();
   final _shopName = TextEditingController();
   final _ownerName = TextEditingController();
+  final _shopPhone = TextEditingController();
+  final _shopAddress = TextEditingController();
   final _shopCode = TextEditingController();
   final _username = TextEditingController();
   String? _savedCode;
@@ -46,6 +48,8 @@ class _LoginScreenState extends State<LoginScreen> {
     _password.dispose();
     _shopName.dispose();
     _ownerName.dispose();
+    _shopPhone.dispose();
+    _shopAddress.dispose();
     _shopCode.dispose();
     _username.dispose();
     super.dispose();
@@ -79,6 +83,8 @@ class _LoginScreenState extends State<LoginScreen> {
             password: _password.text,
             shopName: _shopName.text.trim(),
             ownerName: _ownerName.text.trim(),
+            phone: _shopPhone.text.trim(),
+            address: _shopAddress.text.trim(),
           );
           break;
       }
@@ -150,6 +156,22 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextField(
                     controller: _shopName,
                     decoration: const InputDecoration(labelText: 'Shop name'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _shopPhone,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(
+                        labelText: 'Shop phone',
+                        helperText: 'Printed on your bills'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _shopAddress,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: const InputDecoration(
+                        labelText: 'Shop address',
+                        helperText: 'Printed on your bills'),
                   ),
                   const SizedBox(height: 12),
                   TextField(

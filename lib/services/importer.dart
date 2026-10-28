@@ -194,6 +194,16 @@ class Importer {
       return d == d.roundToDouble() ? d.toStringAsFixed(0) : d.toString();
     }
     if (v is BoolCellValue) return v.value ? 'true' : 'false';
+    // Date cells (Excel dates) -> yyyy-mm-dd
+    try {
+      final dynamic d = v;
+      final y = d.year;
+      final mo = d.month;
+      final da = d.day;
+      if (y is int && mo is int && da is int) {
+        return '${y.toString().padLeft(4, '0')}-${mo.toString().padLeft(2, '0')}-${da.toString().padLeft(2, '0')}';
+      }
+    } catch (_) {}
     try {
       final dynamic raw = (v as dynamic).value;
       if (raw is String) return raw;
